@@ -22,7 +22,7 @@
 
 ###### 客户端连接服务端后,不断从控制台读取字符串,发给服务端,服务端接收后则在控制台界面输出
 
-![tcp_server.c](https:github.com/D-lyw/Socket_C_linux/Tcp_socket_linux/tcp_server.c)
+[tcp_server.c](https://github.com/D-lyw/Socket_C_linux/blob/master/Tcp_socket_linux/tcp_server.c)
 
 ```c
 /*
@@ -98,7 +98,7 @@ int main(int argc, char const *argv[])
 ```
 
 
-![tcp_client.c](https:github.com/D-lyw/Socket_C_linux/Tcp_socket_linux/tcp_client.c)
+![tcp_client.c](https://github.com/D-lyw/Socket_C_linux/blob/master/Tcp_socket_linux/tcp_client.c)
 ```c
 /*
  * @Author: D-lyw 
