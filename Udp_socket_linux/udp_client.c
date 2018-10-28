@@ -37,10 +37,10 @@ int main(int argc, char const *argv[])
         // 清空缓存区
         bzero(buf, MAXSIZE);
         // memset(recvaddr, 0, sizeof(recvaddr));
-        recv_l = recvfrom(sockfd, buf, MAXSIZE, 0, (struct sockaddr *)&recvaddr, &addr_len);
-        printf("length: %d\n", recv_l);
-        buf[recv_l] = '\0';
-        fprintf(stdout, "Recive msg: \n %s\n", buf);
+        if((recv_l = recvfrom(sockfd, buf, MAXSIZE, 0, (struct sockaddr *)&recvaddr, &addr_len) == -1)){
+            fprintf(stderr, "%s\n", strerror(errno));
+        }
+        fprintf(stdout, "Recived from:%s:%d\n#> %s", inet_ntoa(recvaddr.sin_addr), ntohs(recvaddr.sin_port), buf);
     }
 
     return 0;

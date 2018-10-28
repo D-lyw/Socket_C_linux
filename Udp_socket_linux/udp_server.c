@@ -22,8 +22,8 @@ void udpRespon(int sockfd){
         n = recvfrom(sockfd, recvbuf, MAXMSGSIZE, 0, 
             (struct sockaddr *)&addr, &addrlen);
         recvbuf[n] = '\0';
-        fprintf(stdout, "%s", recvbuf);
-        printf("%d, %s\n", ntohs(addr.sin_port), inet_ntoa(addr.sin_addr));
+        printf("Recive from:%s:%d\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+        fprintf(stdout, "#> %s", recvbuf);
         fgets(sendbuf, MAXMSGSIZE, stdin);
         if(( n = sendto(sockfd, sendbuf, MAXMSGSIZE, 0, 
             (struct sockaddr *)&addr, sizeof(struct sockaddr))) == -1){
