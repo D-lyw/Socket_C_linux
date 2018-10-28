@@ -17,6 +17,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <string.h>
+extern int errno;
 
 #define LOCALPORT 8800
 

@@ -14,6 +14,7 @@
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <errno.h>
+extern int errno;
 
 #define SERVADDR_PORT 8800
 
