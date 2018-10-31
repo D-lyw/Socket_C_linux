@@ -10,5 +10,7 @@
 #define ICMP_DATA_LEN 56
 
 
-uint16_t packping(int sendsqe);
+int packping(int sendsqe);
 ushort checksum(unsigned char *buf, int len);
+int decodepack(char *buf, int len);
+float timesubtract(struct timeval *begin, struct timeval *end);

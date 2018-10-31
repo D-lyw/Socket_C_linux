@@ -5,12 +5,12 @@
     "tasks": [
         {
             "label": "build",
-            "command": "g++",
+            "command": "gcc",
             "args": [
                 "-g",
                 "${file}",
                 "-o",
-                "${fileBasenameNoExtension}"
+                "$${workspaceRoot}/ping/{fileBasenameNoExtension}"
             ],
             "problemMatcher": {
                 "owner": "cpp",
