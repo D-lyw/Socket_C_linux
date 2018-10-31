@@ -10,7 +10,7 @@
                 "-g",
                 "${file}",
                 "-o",
-                "./${fileBasenameNoExtension}.exe"
+                "${fileBasenameNoExtension}"
             ],
             "problemMatcher": {
                 "owner": "cpp",
