@@ -6,41 +6,43 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include <pthread.h>
+
 extern int errno;
 
 #define SERVER_PORT 8888
 #define MAXMSGSIZE 1024
 
-void udpRespon(int sockfd){
-    struct sockaddr_in addr;
-    socklen_t addrlen;
-    int n;
-    char recvbuf[MAXMSGSIZE];
-    char sendbuf[MAXMSGSIZE];
+pthread_t Psend;
+char recvbuf[MAXMSGSIZE];
+char sendbuf[MAXMSGSIZE];
+int sockfd;
+struct sockaddr_in addr, clientaddr;
 
+void *sendMsg(void *s){
     while(1){
-        n = recvfrom(sockfd, recvbuf, MAXMSGSIZE, 0, 
-            (struct sockaddr *)&addr, &addrlen);
-        recvbuf[n] = '\0';
-        printf("Recive from:%s:%d\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
-        fprintf(stdout, "#> %s", recvbuf);
         fgets(sendbuf, MAXMSGSIZE, stdin);
-        if(( n = sendto(sockfd, sendbuf, MAXMSGSIZE, 0, 
-            (struct sockaddr *)&addr, sizeof(struct sockaddr))) == -1){
+        if(sendto(sockfd, sendbuf, MAXMSGSIZE, 0, (struct sockaddr *)&clientaddr, sizeof(struct sockaddr)) == -1){
             fprintf(stderr, "%s\n", strerror(errno));
         }
     }
+    return NULL;
 }
 
 int main(int argc, char const *argv[])
 {
-    int sockfd;
-    struct sockaddr_in addr;
+    
+    socklen_t addrlen;              // 套接字地址信息数据结构的长度
+
+
+    // 创建套接字
     if((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1){
         fprintf(stderr, "创建套接字失败 , %s\n", strerror(errno));
     }
 
     bzero(&addr, sizeof(struct sockaddr_in));
+
+    // 本地的地址信息
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = inet_addr("127.0.0.1");
     addr.sin_port = htons(SERVER_PORT);
@@ -49,7 +51,17 @@ int main(int argc, char const *argv[])
         fprintf(stderr, "绑定套接字失败, %s\n", strerror(errno));
     }
 
-    udpRespon(sockfd);
+    pthread_create(&Psend, NULL, sendMsg, NULL);
+
+    // 循环轮流接收和发送数据
+    while(1){
+        if(recvfrom(sockfd, recvbuf, MAXMSGSIZE, 0, (struct sockaddr *)&clientaddr, &addrlen) == -1){
+                fprintf(stderr, "Recive msg error!\n");
+        }
+        printf("Recive from:%s:%d\n", inet_ntoa(clientaddr.sin_addr), ntohs(clientaddr.sin_port));
+        fprintf(stdout, "#> %s", recvbuf);
+    }
+    
     close(sockfd);
     return 0;
 }
