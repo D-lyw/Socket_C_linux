@@ -2,7 +2,7 @@
  * @Author: D-lyw 
  * @Date: 2018-10-25 00:48:44 
  * @Last Modified by: D-lyw
- * @Last Modified time: 2018-10-26 15:04:20
+ * @Last Modified time: 2018-11-16 12:29:37
  */
 
 #include <stdio.h>
@@ -14,9 +14,10 @@
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <errno.h>
-extern int errno;
 
 #define SERVADDR_PORT 8800
+
+const char *LOCALIP = "127.0.0.1";
 
 int main(int argc, char const *argv[])
 {
@@ -33,42 +34,8 @@ int main(int argc, char const *argv[])
 
     // 给套接字数据结构赋值,指定ip地址和端口号
     servaddr.sin_family = AF_INET;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
     servaddr.sin_port = htons(SERVADDR_PORT);
-    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    servaddr.sin_addr.s_addr = inet_addr(LOCALIP);
 
     // 绑定套接字
     if(bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == -1){
@@ -89,16 +56,14 @@ int main(int argc, char const *argv[])
         // 接受由客户机进程调用connet函数发出的连接请求
         recvfd = accept(listenfd, (struct sockaddr *)&clientaddr, &cliaddr_len);
         printf("接收到请求套接字描述符: %d\n", recvfd);
-        printf("serverport %s\n", ntohl(servaddr.sin_port));
+
         while(1){
             // 在已建立连接的套接字上接收数据
             if((recvLen = recv(recvfd, recvBuf, 1024, 0)) == -1){
                 fprintf(stderr,"接收数据错误, %s\n",strerror(errno));
             }
-            recvBuf[recvLen] = '\0';
-            printf("%s\n", recvBuf);
+            printf("%s", recvBuf);
         }
-        
     }
     close(recvfd);
     return 0;

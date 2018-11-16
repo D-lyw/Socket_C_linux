@@ -1,3 +1,11 @@
+/*
+ * @Author: D-lyw 
+ * @Date: 2018-11-16 12:24:25 
+ * @Last Modified by: D-lyw
+ * @Last Modified time: 2018-11-16 12:26:08
+ * @Descripe UDP 客户端,实现UDP服务端,双向通信
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -34,9 +42,6 @@ void *sendMsg(void *s){
 
 int main(int argc, char const *argv[])
 {
-    
-
-
     // 创建一个客户端的套接字
     if((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1){
         fprintf(stderr, "%s\n", strerror(errno));

@@ -29,7 +29,7 @@
  * @Author: D-lyw 
  * @Date: 2018-10-25 00:48:44 
  * @Last Modified by: D-lyw
- * @Last Modified time: 2018-10-26 15:04:20
+ * @Last Modified time: 2018-11-16 12:36:34
  */
 
 #include <stdio.h>
@@ -43,6 +43,8 @@
 #include <errno.h>
 
 #define SERVADDR_PORT 8800
+
+const char *LOCALIP = "127.0.0.1";
 
 int main(int argc, char const *argv[])
 {
@@ -60,7 +62,7 @@ int main(int argc, char const *argv[])
     // 给套接字数据结构赋值,指定ip地址和端口号
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(SERVADDR_PORT);
-    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    servaddr.sin_addr.s_addr = inet_addr(LOCALIP);
 
     // 绑定套接字
     if(bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == -1){
@@ -87,10 +89,8 @@ int main(int argc, char const *argv[])
             if((recvLen = recv(recvfd, recvBuf, 1024, 0)) == -1){
                 fprintf(stderr,"接收数据错误, %s\n",strerror(errno));
             }
-            recvBuf[recvLen] = '\0';
-            printf("%s\n", recvBuf);
+            printf("%s", recvBuf);
         }
-        
     }
     close(recvfd);
     return 0;
@@ -104,7 +104,7 @@ int main(int argc, char const *argv[])
  * @Author: D-lyw 
  * @Date: 2018-10-26 14:06:32 
  * @Last Modified by: D-lyw
- * @Last Modified time: 2018-10-26 15:10:08
+ * @Last Modified time: 2018-11-16 12:34:08
  * @name tcp_client.c
  * @descripe    实现最基本的创建套接字, 填充客户端信息,connet连接服务端, 可连续向服务端发送消息
  */
@@ -119,15 +119,16 @@ int main(int argc, char const *argv[])
 #include <string.h>
 #include <sys/types.h>
 #include <string.h>
+extern int errno;
 
-#define LOCALPORT 8800
+#define SERVERPORT 8800
 
 int main(int argc, char const *argv[])
 {
     // 定义变量存储本地套接字描述符
     int clifd;
     // 设置本地ip地址
-    const char localIp[] = "127.0.0.1";
+    const char serverIp[] = "127.0.0.1";
     // 定义套接字结构存储套接字的ip,port等信息
     struct sockaddr_in cliaddr_in;
     // 定义发送,接收缓冲区大小
@@ -139,17 +140,17 @@ int main(int argc, char const *argv[])
         exit(errno);
     }
 
-    // 填充 结构体信息
+    // 填充 服务器端结构体信息
     cliaddr_in.sin_family = AF_INET;
-    cliaddr_in.sin_addr.s_addr = inet_addr(localIp);
-    cliaddr_in.sin_port = htons(LOCALPORT);
+    cliaddr_in.sin_addr.s_addr = inet_addr(serverIp);
+    cliaddr_in.sin_port = htons(SERVERPORT);
 
     // 请求连接服务器进程
     if(connect(clifd, (struct sockaddr *)&cliaddr_in, sizeof(struct sockaddr)) == -1){
         fprintf(stderr,"请求连接服务器失败, %s\n", strerror(errno));
         exit(errno);
     }
-    strcpy(sendBuf, "hi,hi, severs!");
+    strcpy(sendBuf, "hi,hi, severs!\n");
     // 发送打招呼消息
     if(send(clifd, sendBuf, 1024, 0) == -1){
         fprintf(stderr, "send message error:(, %s\n", strerror(errno));
@@ -157,7 +158,7 @@ int main(int argc, char const *argv[])
     }
     // 阻塞等待输入,发送消息
     while(1){
-        scanf("%s", sendBuf);
+        fgets(sendBuf, 1024, stdin);
         if(send(clifd, sendBuf, 1024, 0) == -1){
             fprintf(stderr, "send message error:(, %s\n", strerror(errno));
         }
@@ -166,3 +167,6 @@ int main(int argc, char const *argv[])
     return 0;
 }
 ```
+
+
+### 较为完整功能
