@@ -478,3 +478,151 @@ int main(int argc, char const *argv[])
 }
 
 ```
+
+## 四, 一家四口吃水果的同步问题
+
+> 用四个线程来处理每个人对应的动作, 加上信号量来实现``同步和互斥``
+
+```c
+/*
+ * @Author: D-lyw 
+ * @Date: 2018-11-13 22:08:35 
+ * @Last Modified by: D-lyw
+ * @Last Modified time: 2018-11-14 01:15:01
+ * @Descripe 
+ *          桌子有一个盘子, 每次只能放入一个水果.
+ *          爸爸专向盘子中放入苹果, 妈妈专向盘子中放橘子, 一个儿子专等吃盘子中的橘子, 一个女儿专吃盘子中的苹果
+ *          试用PV操作实现四个人的同步
+ * @Analysis
+ *          爸爸,妈妈要互斥使用盘子,所以二者是互斥关系;
+ *          爸爸放苹果, 女儿吃, 所以二者是同步关系;
+ *          妈妈放的橘子, 儿子吃, 所以二者也是同步关系.
+ *      定义三个信号量: SA, SO, mutex.
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/sem.h>
+#include <sys/shm.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <pthread.h>
+
+union semun{
+    int val;
+    struct semid_ds *buf;
+    unsigned short *array;
+};
+
+// 定义SA, SO, mutex三个信号量的内部标识
+int SA;
+int SO;
+int mutex;
+
+// 创建共享区标识
+int plantid;
+char *plant;
+
+// 定义四个线程的线程ID
+pthread_t pM;
+pthread_t pF;
+pthread_t pS;
+pthread_t pD;
+
+// 定义数据结构
+struct sembuf P, V;
+union semun arg;
+    
+void *mother(void *arg);
+void *father(void *arg);
+void *son(void *arg);
+void *daughter(void *arg);
+
+int main(int argc, char const *argv[])
+{
+    plantid = shmget(IPC_PRIVATE, sizeof(char )*10, IPC_CREAT|0666);
+    plant = (char *) shmat(plantid, 0, 0);
+
+    // 创建信号量
+    SA = semget(IPC_PRIVATE, 1, 0666|IPC_CREAT);
+    SO = semget(IPC_PRIVATE, 1, 0666|IPC_CREAT);
+    mutex = semget(IPC_PRIVATE, 1, 0666|IPC_CREAT);
+
+    // 为信号量赋初值
+    arg.val = 0;
+    if(semctl(SA, 0, SETVAL, arg) == -1){
+        perror("semctl error");
+    }
+    if(semctl(SO, 0, SETVAL, arg) == -1){
+        perror("semctl error");
+    }
+    arg.val = 1;
+    if(semctl(mutex, 0, SETVAL, arg) == -1){
+        perror("semctl error");
+    }
+
+    // 定义P, V操作
+    P.sem_num = 0;              // 表示操作的是信号量集的第几个信号量
+    P.sem_op = -1;
+    P.sem_flg = SEM_UNDO;
+    V.sem_num = 0;
+    V.sem_op = 1;
+    V.sem_flg = SEM_UNDO;
+
+    pthread_create(&pM, NULL, mother, NULL);
+    pthread_create(&pF, NULL, father, NULL);
+    pthread_create(&pD, NULL, daughter, NULL);
+    pthread_create(&pS, NULL, son, NULL);
+
+    sleep(2);
+    return 0;
+}
+
+void *mother(void *arg){
+    int i = 3;
+    while(i--){
+        semop(mutex, &P, 1);
+        // printf("妈妈向盘子放入一个 --橘子--\n");
+        plant = "橘子";
+        semop(SO, &V, 1);
+    }
+    return NULL;
+}
+
+void *father(void *arg){
+    int i = 3; 
+    while(i--){
+        semop(mutex, &P, 1);
+        // printf("爸爸向盘子放入一个 --苹果--\n");
+        plant = "苹果";
+        semop(SA, &V, 1);
+    }
+    return NULL;
+}
+
+void *son(void *arg){   
+    int i = 3;
+    while(i--){
+        semop(SO, &P, 1);          // 对muteid执行P操作
+        // printf("儿子从盘子中拿了一个 **橘子**\n");
+        printf("儿子拿到: %s\n", plant);
+        printf("--------------------------\n");
+        semop(mutex, &V, 1);
+    }
+    return NULL;
+}
+
+void *daughter(void *arg){
+    int i = 3;
+    while(i--){
+        semop(SA, &P, 1);
+        // printf("女儿从盘子中拿了一个 **苹果**\n");
+        printf("女儿拿到: %s\n", plant);
+        printf("--------------------------\n");
+        semop(mutex, &V, 1);
+    }
+    return NULL;
+}
+
+```

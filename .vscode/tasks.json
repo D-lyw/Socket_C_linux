@@ -10,7 +10,7 @@
                 "-g",
                 "${file}",
                 "-o",
-                "$${workspaceRoot}/ping/{fileBasenameNoExtension}"
+                "${workspaceRoot}/Tcp_socket_linux/${fileBasenameNoExtension}"
             ],
             "problemMatcher": {
                 "owner": "cpp",
