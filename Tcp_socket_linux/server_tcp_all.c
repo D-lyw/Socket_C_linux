@@ -93,6 +93,10 @@ int main(int argc, char const *argv[])
             }
             close(recvfd);
             exit(0);
+        }else if(childid > 0){
+            printf("父进程:%d\n", childid);
+        }else{
+            fprintf(stderr, "fork 子进程出错，%s\n", strerror(errno));
         }
     }
 
