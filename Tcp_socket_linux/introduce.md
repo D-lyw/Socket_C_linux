@@ -13,7 +13,7 @@
 ### 数据传输的过程：
 
 建立连接后，TCP协议提供全双工的通信服务，但是一般的客户端/服务器程序的流程是由客户端主动发起请求，服务器被动处理请求，一问一答的方式。因此，服务器从accept()返回后立刻调用read()，读socket就像读管道一样，如果没有数据到达就阻塞等待，这时客户端调用write()发送请求给服务器，服务器收到后从read()返回，对客户端的请求进行处理，在此期间客户端调用read()阻塞等待服务器的应答，服务器调用write()将处理结果发回给客户端，再次调用read()阻塞等待下一条请求，客户端收到后从read()返回，发送下一条请求，如此循环下去。
-
+    
 如果客户端没有更多的请求了，就调用close()关闭连接，就像写端关闭的管道一样，服务器的read()返回0，这样服务器就知道客户端关闭了连接，也调用close()关闭连接。注意，任何一方调用close()后，连接的两个传输方向都关闭，不能再发送数据了。如果一方调用shutdown()则连接处于半关闭状态，仍可接收对方发来的数据。
 
 在学习socket API时要注意应用程序和TCP协议层是如何交互的： *应用程序调用某个socket函数时TCP协议层完成什么动作，比如调用connect()会发出SYN段 *应用程序如何知道TCP协议层的状态变化，比如从某个阻塞的socket函数返回就表明TCP协议收到了某些段，再比如read()返回0就表明收到了FIN段
@@ -29,7 +29,7 @@
  * @Author: D-lyw 
  * @Date: 2018-10-25 00:48:44 
  * @Last Modified by: D-lyw
- * @Last Modified time: 2018-11-16 12:36:34
+ * @Last Modified time: 2018-12-01 23:52:03
  */
 
 #include <stdio.h>
@@ -169,4 +169,282 @@ int main(int argc, char const *argv[])
 ```
 
 
-### 较为完整功能
+### 实现一个聊天室功能
+
+` 服务器端代码`
+```c
+/*
+ * @Author: D-lyw 
+ * @Date: 2018-11-22 20:37:05 
+ * @Last Modified by: D-lyw
+ * @Last Modified time: 2018-11-23 00:19:42
+ * @Describe Chating Room Coded by linux c .
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <errno.h>
+#include <pthread.h>
+
+const unsigned short LOCALPORT = 3003;
+const char *LOCALIP = "127.0.0.1";
+#define MAXMSGSIZE 1024*5
+#define MAXCONNECT 100
+
+char sendbuf[MAXMSGSIZE];
+char recvbuf[MAXMSGSIZE];
+
+struct msgHdr{
+    int fd;                     // 套接字描述符
+    ushort tip;                 // 0 进入聊天室,    1 离开聊天室    2 发送消息
+    ushort onLineNum;           // 在线人数
+};
+
+// 线程描述符
+pthread_t Precv;
+pthread_t Psend;
+
+int clientFdarray[MAXCONNECT];
+struct msgHdr *sendMsgHdr, *recvMsgHdr;
+int onLineNum = 0;      // 在线人数
+
+void rmFd(int dealfd){
+    for(int i = 0; i < (onLineNum+1); i++){
+        if(clientFdarray[i] == dealfd){
+            for(; i < onLineNum; i++){
+                clientFdarray[i] = clientFdarray[i+1];
+            }
+            printf("当前所有用户:\n");
+            for(int j = 0; j < onLineNum; j++){
+                printf("     用户:%d\n", clientFdarray[j]);
+            }
+        }
+    }
+}
+
+// 服务器发送消息线程
+void sendToClient(char *buf, int dealfd){
+    for(int j = 0; j < onLineNum; j++){
+        if(clientFdarray[j] == dealfd){
+            continue;
+        }
+        if(send(clientFdarray[j], buf, MAXMSGSIZE, 0) == -1){
+            fprintf(stderr, "%s\n", strerror(errno));
+        }
+    }
+    bzero(buf, MAXMSGSIZE);
+}
+
+//　接收客户端消息线程
+void *recvMsg(void *recvfd){
+    int dealfd = *(int *)recvfd;
+    while(1){
+        if(recv(dealfd, recvbuf, MAXMSGSIZE, 0) == -1){
+            fprintf(stderr, "Receive msg err: %s\n", strerror(errno));
+        }
+        recvMsgHdr = (struct msgHdr *)recvbuf;
+        recvMsgHdr->fd = dealfd;
+        if(recvMsgHdr->tip == 1){
+            onLineNum--;
+            recvMsgHdr->onLineNum = onLineNum;
+            // 将离开的套接字描述符移开在线列表数组
+            rmFd(dealfd);
+            printf("用户:%d 离开了聊天室\n", dealfd);
+            sendToClient(recvbuf, dealfd);
+            close(dealfd);
+            return NULL;
+        }
+        // 将此用户的消息发给其他用户
+        sendToClient(recvbuf, dealfd);
+    }
+    close(dealfd);
+    return NULL;
+}
+
+int main(int argc, char const *argv[])
+{
+    int serverfd, recvfd;
+    socklen_t sockleng;
+    struct sockaddr_in serveraddr, clientaddr;
+    pid_t childid;
+    int perrno;
+
+    if( (serverfd = socket(AF_INET, SOCK_STREAM, 0) ) == -1){
+        fprintf(stderr, "创建服务器套接字错误, %s\n", strerror(errno));
+        exit(0);
+    }
+
+    serveraddr.sin_family = AF_INET;
+    serveraddr.sin_port = htons(LOCALPORT);
+    serveraddr.sin_addr.s_addr = inet_addr(LOCALIP);
+
+    if(bind(serverfd, (struct sockaddr *)&serveraddr, sizeof(struct sockaddr)) == -1){
+        fprintf(stderr, "绑定套接字错误, %s\n", strerror(errno));
+        exit(0);
+    }
+
+    if(listen(serverfd, 100) == -1){
+        fprintf(stderr, "监听套接字错误, %s\n", strerror(errno));
+    }
+    
+    printf("\nListening at %d port, wating connection.....\n", LOCALPORT);
+
+    while(1){
+        if((recvfd = accept(serverfd, (struct sockaddr *)&clientaddr, &sockleng)) == 0){
+            fprintf(stderr, "连接错误, %s\n", strerror(errno));
+            continue;
+        }
+        // 将该套接字描述符保存进数组
+        clientFdarray[onLineNum++] = recvfd;
+
+        printf("客户端套接字:%d 已开启\n", recvfd);
+
+        sendMsgHdr = (struct msgHdr *)sendbuf; 
+        sendMsgHdr->fd = recvfd;
+        sendMsgHdr->tip = 0;
+        sendMsgHdr->onLineNum = onLineNum;
+
+        // 当有用户加入时,通知聊天室中的所有人
+        for(int j = 0; j < onLineNum; j++){
+            if(send(clientFdarray[j], sendbuf, MAXMSGSIZE, 0) == -1){
+                fprintf(stderr, "%s\n", strerror(errno));
+            }
+        }
+        bzero(sendbuf, MAXMSGSIZE);
+
+        // 创建接收用户消息处理线程
+        if((perrno = pthread_create(&Precv, NULL, recvMsg, &recvfd)) != 0){
+            fprintf(stderr, "创建子消息接收线程失败, %s\n", strerror(perrno));
+            exit(perrno);
+        }
+    }
+    close(serverfd);
+    return 0;
+}
+
+```
+
+`客户端代码`
+
+```c
+/*
+ * @Author: D-lyw 
+ * @Date: 2018-11-22 21:47:58 
+ * @Last Modified by: D-lyw
+ * @Last Modified time: 2018-11-23 00:37:01
+ */
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <errno.h>
+#include <pthread.h>
+
+extern int errno;
+
+#define MAXSIZE 1024*5
+#define SERVER_PORT 3003
+const char *SERVERIP = "127.0.0.1";
+// const char *SERVERIP = "120.78.156.5";
+
+char sendbuf[MAXSIZE];
+char recvbuf[MAXSIZE];
+
+struct msgHdr{
+    int fd;                     // 套接字描述符
+    ushort tip;                 // 0 进入聊天室,    1 离开聊天室    2 发送消息
+    ushort onLineNum;           // 在线人数
+
+};
+
+int sockfd;
+struct msgHdr *mySendMsgHdr, *myRecvMsgHdr;
+
+void *sendMsg(void *msg){
+    while(1){
+        mySendMsgHdr = (struct msgHdr *)sendbuf;
+        mySendMsgHdr->fd = sockfd;
+        
+        fgets(sendbuf + sizeof(struct msgHdr), MAXSIZE - sizeof(struct msgHdr), stdin);
+        
+        if(strncmp(sendbuf + sizeof(struct msgHdr), "end", 3) == 0){    // 用户离开聊天室
+            mySendMsgHdr->tip = 1;      
+            if(send(sockfd, sendbuf, MAXSIZE, 0) == -1){
+                fprintf(stderr, "%s\n", strerror(errno));
+            }
+            close(sockfd);
+            exit(0);
+        }else{
+            mySendMsgHdr->tip = 2;              // 用户发送数据
+        }
+        
+        if(send(sockfd, sendbuf, MAXSIZE, 0) == -1){
+            fprintf(stderr, "%s\n", strerror(errno));
+        }
+        bzero(sendbuf, MAXSIZE);
+    }
+    return NULL;
+}
+
+int main(int argc, char const *argv[])
+{
+    ssize_t sendLen;
+    struct sockaddr_in seraddr, recvaddr;
+    pthread_t Psend;
+    
+
+    // 创建一个客户端的套接字
+    if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1){
+        fprintf(stderr, "%s\n", strerror(errno));
+        exit(errno);
+    }
+
+    bzero(&seraddr, sizeof(struct sockaddr_in));
+    // 服务器端地址信息
+    seraddr.sin_family = AF_INET;
+    seraddr.sin_addr.s_addr = inet_addr(SERVERIP);
+    seraddr.sin_port = htons(SERVER_PORT);
+
+    // 请求连接服务器进程
+    if(connect(sockfd, (struct sockaddr *)&seraddr, sizeof(struct sockaddr)) == -1){
+        fprintf(stderr,"请求连接服务器失败, %s\n", strerror(errno));
+        exit(errno);
+    }
+    
+    printf("--------Successful connect to %s:%d--------\n", inet_ntoa(seraddr.sin_addr), ntohs(seraddr.sin_port));
+
+    // 新建线程发送消息
+    pthread_create(&Psend, NULL, sendMsg, NULL);
+    
+    // 接收其他用户消息
+    while(1){
+        // 清空缓存区
+        bzero(recvbuf, MAXSIZE);
+        if(recv(sockfd, recvbuf, MAXSIZE, 0) == -1){
+            fprintf(stderr, "%s\n", strerror(errno));
+        }
+        
+        myRecvMsgHdr = (struct msgHdr *)recvbuf;
+        if(myRecvMsgHdr->tip == 0){
+            fprintf(stdout, "        **用户 %d 加入聊天室 当前用户: %d 人**        \n", myRecvMsgHdr->fd, myRecvMsgHdr->onLineNum);
+        }else if(myRecvMsgHdr->tip == 1){
+            printf("       **用户 %d 离开聊天室 当前用户: %d 人**         \n", myRecvMsgHdr->fd, myRecvMsgHdr->onLineNum);
+        }else if(myRecvMsgHdr->tip == 2){
+            fprintf(stdout, "#%d> %s\n", myRecvMsgHdr->fd, recvbuf+sizeof(struct msgHdr));
+        }
+        
+    }
+    return 0;
+}
+
+```

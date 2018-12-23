@@ -2,7 +2,7 @@
  * @Author: D-lyw 
  * @Date: 2018-11-22 21:47:58 
  * @Last Modified by: D-lyw
- * @Last Modified time: 2018-11-22 23:19:58
+ * @Last Modified time: 2018-11-23 00:37:01
  */
 
 #include <stdio.h>
@@ -19,7 +19,8 @@ extern int errno;
 
 #define MAXSIZE 1024*5
 #define SERVER_PORT 3003
-const char *LOCALIP = "127.0.0.1";
+const char *SERVERIP = "127.0.0.1";
+// const char *SERVERIP = "120.78.156.5";
 
 char sendbuf[MAXSIZE];
 char recvbuf[MAXSIZE];
@@ -76,7 +77,7 @@ int main(int argc, char const *argv[])
     bzero(&seraddr, sizeof(struct sockaddr_in));
     // 服务器端地址信息
     seraddr.sin_family = AF_INET;
-    seraddr.sin_addr.s_addr = inet_addr(LOCALIP);
+    seraddr.sin_addr.s_addr = inet_addr(SERVERIP);
     seraddr.sin_port = htons(SERVER_PORT);
 
     // 请求连接服务器进程

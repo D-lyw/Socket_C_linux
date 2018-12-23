@@ -2,7 +2,7 @@
  * @Author: D-lyw 
  * @Date: 2018-11-22 20:37:05 
  * @Last Modified by: D-lyw
- * @Last Modified time: 2018-11-22 23:49:03
+ * @Last Modified time: 2018-11-23 00:19:42
  * @Describe Chating Room Coded by linux c .
  */
 
@@ -45,8 +45,9 @@ void rmFd(int dealfd){
             for(; i < onLineNum; i++){
                 clientFdarray[i] = clientFdarray[i+1];
             }
+            printf("当前所有用户:\n");
             for(int j = 0; j < onLineNum; j++){
-                printf("用户: %d\n", clientFdarray[j]);
+                printf("     用户:%d\n", clientFdarray[j]);
             }
         }
     }
@@ -54,7 +55,7 @@ void rmFd(int dealfd){
 
 // 服务器发送消息线程
 void sendToClient(char *buf, int dealfd){
-    for(int j = 0; clientFdarray[j] != 0; j++){
+    for(int j = 0; j < onLineNum; j++){
         if(clientFdarray[j] == dealfd){
             continue;
         }
@@ -73,11 +74,12 @@ void *recvMsg(void *recvfd){
             fprintf(stderr, "Receive msg err: %s\n", strerror(errno));
         }
         recvMsgHdr = (struct msgHdr *)recvbuf;
+        recvMsgHdr->fd = dealfd;
         if(recvMsgHdr->tip == 1){
             onLineNum--;
             recvMsgHdr->onLineNum = onLineNum;
             // 将离开的套接字描述符移开在线列表数组
-            rmFd(recvMsgHdr->fd);
+            rmFd(dealfd);
             printf("用户:%d 离开了聊天室\n", dealfd);
             sendToClient(recvbuf, dealfd);
             close(dealfd);
@@ -147,7 +149,6 @@ int main(int argc, char const *argv[])
             exit(perrno);
         }
     }
-
     close(serverfd);
     return 0;
 }
