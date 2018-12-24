@@ -26,6 +26,7 @@ void *memdup(void *mem, size_t n);
 
 
 
+
 int init_sock(int *fd)
 {
     *fd = socket(AF_INET, SOCK_DGRAM, 0);
